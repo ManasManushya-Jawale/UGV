@@ -1,9 +1,9 @@
-#include <Wire.h>
-#include <Adafruit_Sensor.h>
+#include "BluetoothSerial.h"
 #include <Adafruit_BME280.h>
 #include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
 #include <ESP32Servo.h>
-#include "BluetoothSerial.h"
+#include <Wire.h>
 
 BluetoothSerial serialBLE;
 Servo myservo;
@@ -32,9 +32,9 @@ int distance = 0;
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 
-#define MPU_ADDRESS 0x68  // Use 0x69 if the AD0 pin is wired to 3.3V
+#define MPU_ADDRESS 0x68 // Use 0x69 if the AD0 pin is wired to 3.3V
 #define SEND_INTERVAL_MS 50
-#define COMMAND_TIMEOUT_MS 500  // stop if the dashboard goes quiet
+#define COMMAND_TIMEOUT_MS 500 // stop if the dashboard goes quiet
 
 Adafruit_BME280 bme;
 Adafruit_MPU6050 mpu;
@@ -44,10 +44,10 @@ float humidity = 10;
 float pressure = 0;
 
 // MPU-6050 readings
-float accelX = 0, accelY = 0, accelZ = 0;  // m/s^2
-float gyroX = 0, gyroY = 0, gyroZ = 0;     // rad/s
-bool mpuFound = false;  // sensor initialised successfully
-bool mpuOK = false;     // latest reading is valid
+float accelX = 0, accelY = 0, accelZ = 0; // m/s^2
+float gyroX = 0, gyroY = 0, gyroZ = 0;    // rad/s
+bool mpuFound = false;                    // sensor initialised successfully
+bool mpuOK = false;                       // latest reading is valid
 
 uint8_t previousAngle = 16;
 uint8_t scanAngle = 15;
@@ -78,7 +78,7 @@ void setupMPU() {
 
   if (!mpuFound) {
     Serial.println("MPU6050 not found!");
-    return;  // The rest of the car keeps working
+    return; // The rest of the car keeps working
   }
 
   mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
@@ -145,8 +145,8 @@ void sendInfo() {
 }
 
 void controlMicellenaous() {
-  digitalWrite(buzzerPin, buzz ? HIGH:LOW);
-  digitalWrite(LEDPin, LED ? HIGH:LOW);
+  digitalWrite(buzzerPin, buzz ? HIGH : LOW);
+  digitalWrite(LEDPin, LED ? HIGH : LOW);
 }
 
 void toggleMotor(uint8_t forward, uint8_t backward, bool v) {
@@ -177,19 +177,43 @@ void readCommands() {
     char command = serialBLE.read();
 
     switch (command) {
-      case 'F': moveCar(1, 1); break;
-      case 'B': moveCar(0, 0); break;
-      case 'L': moveCar(0, 1); break;
-      case 'R': moveCar(1, 0); break;
-      case 'S': stopCar(); break;
-      default: continue;  // ignore anything else
+    case 'F':
+      moveCar(1, 1);
+      break;
+    case 'B':
+      moveCar(0, 0);
+      break;
+    case 'L':
+      moveCar(0, 1);
+      break;
+    case 'R':
+      moveCar(1, 0);
+      break;
+    case 'H':
+      digitalWrite(BUZZER_PIN, HIGH);
+      break;
+    case 'h':
+      digitalWrite(BUZZER_PIN, LOW);
+      break;
+    case 'O':
+      digitalWrite(LED_PIN, HIGH);
+      break;
+    case 'o':
+      digitalWrite(LED_PIN, LOW);
+      break;
+    case 'S':
+      stopCar();
+      break;
+    default:
+      continue; // ignore anything else
     }
 
     lastCommandTime = millis();
   }
 
   // Safety stop if the connection drops or commands stop arriving
-  if (!serialBLE.hasClient() || millis() - lastCommandTime > COMMAND_TIMEOUT_MS) {
+  if (!serialBLE.hasClient() ||
+      millis() - lastCommandTime > COMMAND_TIMEOUT_MS) {
     stopCar();
   }
 }
@@ -213,7 +237,7 @@ void setup() {
   myservo.setPeriodHertz(50);
   myservo.attach(servoPin);
 
-  Wire.begin(SDAPin, SCLPin);  // SDA, SCL
+  Wire.begin(SDAPin, SCLPin); // SDA, SCL
 
   setupMPU();
 
@@ -221,7 +245,8 @@ void setup() {
   if (!bme.begin(0x76, &Wire)) {
     if (!bme.begin(0x77, &Wire)) {
       Serial.println("BME280 not found!");
-      while (1) delay(10);
+      while (1)
+        delay(10);
     }
   }
 }
@@ -277,5 +302,4 @@ void loop() {
   }
 
   controlMicellenaous();
-
 }

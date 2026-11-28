@@ -1,903 +1,1476 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UGV Dashboard</title>
-<style>
-  :root {
-    --bg: #121212;
-    --panel: #181818;
-    --line: #cfcfcf;
-    --soft: #8d8d8d;
-    --text: #ececec;
-    --accent: #4fd1c5;
-    --x: #ff5c5c;
-    --y: #5ee07a;
-    --z: #5aa8ff;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: "Comic Mono", "Comic Neue", ui-monospace, Consolas, monospace;
-    padding: 12px;
-  }
-  .dashboard, .group, .card {
-    border: 2px solid var(--line);
-    border-radius: 22px;
-  }
-  .dashboard {
-    min-height: calc(100vh - 24px);
-    height: calc(100vh - 24px);
-    padding: 10px 14px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  header {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    gap: 10px;
-  }
-  h1 { font-size: 26px; font-weight: 500; grid-column: 2; text-align: center; }
-  #status { font-size: 13px; color: var(--soft); }
-  #status.live { color: var(--y); }
-  #status.warn { color: #ffc857; }
-  .actions { justify-self: end; display: flex; gap: 8px; }
-  button, select {
-    font: inherit;
-    font-size: 13px;
-    color: var(--text);
-    background: #242424;
-    border: 1.5px solid var(--soft);
-    border-radius: 9px;
-    padding: 6px 12px;
-    cursor: pointer;
-  }
-  button:hover, select:hover { border-color: var(--text); }
-  button.on { background: var(--accent); border-color: var(--accent); color: #08201e; }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UGV Dashboard</title>
+  <style>
+    :root {
+      --bg: #121212;
+      --panel: #181818;
+      --line: #cfcfcf;
+      --soft: #8d8d8d;
+      --text: #ececec;
+      --accent: #4fd1c5;
+      --x: #ff5c5c;
+      --y: #5ee07a;
+      --z: #5aa8ff;
+    }
 
-  .group { padding: 8px; }
-  .sensors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .card {
-    background: var(--panel);
-    position: relative;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-  }
-  .card h2 { font-size: 16px; font-weight: 500; }
-  .sensor { text-align: center; padding: 10px; }
-  .value { font-size: clamp(28px, 4.5vh, 46px); font-weight: 700; margin: 2px 0; }
-  .value small { font-size: .45em; color: var(--soft); margin-left: 5px; font-weight: 500; }
-  .range { font-size: 12px; color: var(--soft); }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  .main {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1.05fr);
-    grid-template-areas: "gyro accel" "radar pad";
-    gap: 10px;
-  }
-  .panel { display: flex; flex-direction: column; padding: 8px 12px; }
-  .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .tools { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
-  .tools button, .tools select { font-size: 12px; padding: 3px 9px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Comic Mono", "Comic Neue", ui-monospace, Consolas, monospace;
+      padding: 12px;
+    }
 
-  #gyroPanel { grid-area: gyro; }
-  .gyro-body { flex: 1; min-height: 0; display: flex; gap: 8px; }
-  .angles { display: flex; flex-direction: column; justify-content: center; gap: 6px; width: 150px; }
-  .angle { border-left: 5px solid; padding-left: 9px; }
-  .angle b { display: block; font-size: clamp(20px, 3.2vh, 30px); line-height: 1.1; }
-  .angle span { font-size: 12px; color: var(--soft); display: block; }
-  #scene { flex: 1; min-width: 0; position: relative; }
-  #scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  #sceneMsg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--soft); font-size: 13px; padding: 10px; }
+    .dashboard,
+    .group,
+    .card {
+      border: 2px solid var(--line);
+      border-radius: 22px;
+    }
 
-  #radarPanel { grid-area: radar; }
-  .canvas-wrap { flex: 1; min-height: 0; position: relative; }
-  .canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .dashboard {
+      min-height: calc(100vh - 24px);
+      height: calc(100vh - 24px);
+      padding: 10px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
 
-  #accelPanel { grid-area: accel; }
-  .accel-body { flex: 1; min-height: 0; display: flex; gap: 12px; align-items: stretch; }
-  .gmeter { flex: 1; min-width: 0; position: relative; }
-  .gmeter canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .bars { width: 135px; display: flex; flex-direction: column; justify-content: center; gap: 9px; font-size: 12px; }
-  .bar-label { display: flex; justify-content: space-between; margin-bottom: 3px; }
-  .bar { height: 8px; background: #2c2c2c; border-radius: 4px; position: relative; overflow: hidden; }
-  .bar::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--soft); }
-  .bar i { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; }
-  .note { font-size: 11px; color: var(--soft); }
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 10px;
+    }
 
-  #padPanel { grid-area: pad; align-items: center; justify-content: space-between; }
-  .dpad-wrap { flex: 1; min-height: 0; width: 100%; display: grid; place-items: center; container-type: size; }
-  .dpad {
-    width: min(96cqw, 96cqh, 270px);
-    aspect-ratio: 1;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .dpad svg { width: 100%; height: 100%; display: block; }
-  .key { cursor: pointer; outline: none; }
-  .key .cap { fill: url(#plastic); stroke: #050505; stroke-width: 2; }
-  .key .shine { fill: none; stroke: #ffffff; stroke-opacity: .16; stroke-width: 1.5; }
-  .key .arrow { fill: #0e0e0e; stroke: #777; stroke-width: 1.2; stroke-linejoin: round; }
-  .key text { fill: #bdbdbd; font-size: 15px; font-weight: 700; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
-  .key .face { transition: transform .06s; transform-origin: 120px 120px; }
-  .key.pressed .face { transform: scale(.955); }
-  .key.pressed .cap { fill: #1c1c1c; stroke: var(--accent); }
-  .key.pressed .arrow { fill: var(--accent); stroke: var(--accent); }
-  .key:focus-visible .cap { stroke: var(--text); }
-  #driveState { font-size: 13px; color: var(--soft); text-align: center; }
+    h1 {
+      font-size: 26px;
+      font-weight: 500;
+      grid-column: 2;
+      text-align: center;
+    }
 
-  @media (max-width: 860px) {
-    .dashboard { height: auto; }
-    header { grid-template-columns: 1fr; justify-items: center; }
-    h1 { grid-column: 1; grid-row: 1; }
-    .actions { justify-self: center; }
+    #status {
+      font-size: 13px;
+      color: var(--soft);
+    }
+
+    #status.live {
+      color: var(--y);
+    }
+
+    #status.warn {
+      color: #ffc857;
+    }
+
+    .actions {
+      justify-self: end;
+      display: flex;
+      gap: 8px;
+    }
+
+    button,
+    select {
+      font: inherit;
+      font-size: 13px;
+      color: var(--text);
+      background: #242424;
+      border: 1.5px solid var(--soft);
+      border-radius: 9px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+
+    button:hover,
+    select:hover {
+      border-color: var(--text);
+    }
+
+    button.on {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #08201e;
+    }
+
+    .group {
+      padding: 8px;
+    }
+
+    .sensors {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .card {
+      background: var(--panel);
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .card h2 {
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .sensor {
+      text-align: center;
+      padding: 10px;
+    }
+
+    .value {
+      font-size: clamp(28px, 4.5vh, 46px);
+      font-weight: 700;
+      margin: 2px 0;
+    }
+
+    .value small {
+      font-size: .45em;
+      color: var(--soft);
+      margin-left: 5px;
+      font-weight: 500;
+    }
+
+    .range {
+      font-size: 12px;
+      color: var(--soft);
+    }
+
     .main {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: 380px 280px 250px 340px;
-      grid-template-areas: "gyro" "radar" "accel" "pad";
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+      grid-template-rows: minmax(0, 1fr) minmax(0, 1.05fr);
+      grid-template-areas: "gyro accel" "radar pad";
+      gap: 10px;
     }
-    .gyro-body { flex-direction: column; }
-    .angles { flex-direction: row; width: auto; }
-    .angle { flex: 1; }
-    .sensors { gap: 6px; }
-    .sensor { padding: 8px 2px; }
-    .card h2 { font-size: 13px; }
-    .value { font-size: 19px; }
-    .value small { margin-left: 2px; }
-    .range { font-size: 10px; }
-  }
-  @media (min-width: 861px) {
-    .dashboard { min-height: 640px; }
-  }
-</style>
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      padding: 8px 12px;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tools {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .tools button,
+    .tools select {
+      font-size: 12px;
+      padding: 3px 9px;
+    }
+
+    #gyroPanel {
+      grid-area: gyro;
+    }
+
+    .gyro-body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      gap: 8px;
+    }
+
+    .angles {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      width: 150px;
+    }
+
+    .angle {
+      border-left: 5px solid;
+      padding-left: 9px;
+    }
+
+    .angle b {
+      display: block;
+      font-size: clamp(20px, 3.2vh, 30px);
+      line-height: 1.1;
+    }
+
+    .angle span {
+      font-size: 12px;
+      color: var(--soft);
+      display: block;
+    }
+
+    #scene {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+    }
+
+    #scene canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #sceneMsg {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--soft);
+      font-size: 13px;
+      padding: 10px;
+    }
+
+    #radarPanel {
+      grid-area: radar;
+    }
+
+    .canvas-wrap {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+
+    .canvas-wrap canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #accelPanel {
+      grid-area: accel;
+    }
+
+    .accel-body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .gmeter {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+    }
+
+    .gmeter canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .bars {
+      width: 135px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 9px;
+      font-size: 12px;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3px;
+    }
+
+    .bar {
+      height: 8px;
+      background: #2c2c2c;
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bar::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--soft);
+    }
+
+    .bar i {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+    }
+
+    .note {
+      font-size: 11px;
+      color: var(--soft);
+    }
+
+    #padPanel {
+      grid-area: pad;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Horn button, D-pad, lights button */
+    .pad-row {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dpad-wrap {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      container-type: size;
+    }
+
+    .dpad {
+      width: min(96cqw, 96cqh, 270px);
+      aspect-ratio: 1;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .dpad svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .key {
+      cursor: pointer;
+      outline: none;
+    }
+
+    .key .cap {
+      fill: url(#plastic);
+      stroke: #050505;
+      stroke-width: 2;
+    }
+
+    .key .shine {
+      fill: none;
+      stroke: #ffffff;
+      stroke-opacity: .16;
+      stroke-width: 1.5;
+    }
+
+    .key .arrow {
+      fill: #0e0e0e;
+      stroke: #777;
+      stroke-width: 1.2;
+      stroke-linejoin: round;
+    }
+
+    .key text {
+      fill: #bdbdbd;
+      font-size: 15px;
+      font-weight: 700;
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+    }
+
+    .key .face {
+      transition: transform .06s;
+      transform-origin: 120px 120px;
+    }
+
+    .key.pressed .face {
+      transform: scale(.955);
+    }
+
+    .key.pressed .cap {
+      fill: #1c1c1c;
+      stroke: var(--accent);
+    }
+
+    .key.pressed .arrow {
+      fill: var(--accent);
+      stroke: var(--accent);
+    }
+
+    .key:focus-visible .cap {
+      stroke: var(--text);
+    }
+
+    /* Round push buttons, same plastic look as the D-pad */
+    .aux {
+      --glow: var(--accent);
+      flex: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      width: clamp(58px, 6vw, 82px);
+      padding: 0;
+      background: none;
+      border: 0;
+      outline: none;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    #Buzzer {
+      --glow: #ffc857;
+    }
+
+    #LED {
+      --glow: #fff3a0;
+    }
+
+    .aux .cap {
+      width: 100%;
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      border: 2px solid #050505;
+      background: linear-gradient(#5a5a5e, #29292c);
+      box-shadow:
+        inset 0 1.5px 0 rgba(255, 255, 255, .18),
+        0 0 0 4px #202022,
+        0 7px 0 3px #0b0b0b;
+      transition: transform .06s, box-shadow .12s, background-color .12s;
+    }
+
+    .aux img {
+      width: 62%;
+      height: 62%;
+      object-fit: contain;
+      filter: brightness(0) invert(.85);
+      pointer-events: none;
+    }
+
+    .aux .label {
+      font-size: 12px;
+      color: var(--soft);
+      margin-top: 4px;
+    }
+
+    .aux kbd {
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      min-width: 26px;
+      padding: 5px 7px;
+      background: #242424;
+      border: 1.5px solid var(--soft);
+      border-bottom-width: 3px;
+      border-radius: 7px;
+    }
+
+    .aux:hover .cap,
+    .aux:focus-visible .cap {
+      border-color: var(--glow);
+    }
+
+    .aux.active .cap {
+      background: var(--glow);
+      border-color: var(--glow);
+      box-shadow:
+        0 0 0 4px #202022,
+        0 0 22px 6px color-mix(in srgb, var(--glow) 55%, transparent),
+        0 3px 0 3px #0b0b0b;
+      transform: translateY(4px);
+    }
+
+    .aux.active img {
+      filter: brightness(0);
+    }
+
+    .aux.active .label {
+      color: var(--glow);
+    }
+
+    .aux.active kbd {
+      background: var(--glow);
+      border-color: var(--glow);
+      color: #141414;
+    }
+
+    #driveState {
+      font-size: 13px;
+      color: var(--soft);
+      text-align: center;
+    }
+
+    @media (max-width: 860px) {
+      .dashboard {
+        height: auto;
+      }
+
+      header {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+
+      h1 {
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .actions {
+        justify-self: center;
+      }
+
+      .main {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: 380px 280px 250px 380px;
+        grid-template-areas: "gyro" "radar" "accel" "pad";
+      }
+
+      .gyro-body {
+        flex-direction: column;
+      }
+
+      .angles {
+        flex-direction: row;
+        width: auto;
+      }
+
+      .angle {
+        flex: 1;
+      }
+
+      .sensors {
+        gap: 6px;
+      }
+
+      .sensor {
+        padding: 8px 2px;
+      }
+
+      .card h2 {
+        font-size: 13px;
+      }
+
+      .value {
+        font-size: 19px;
+      }
+
+      .value small {
+        margin-left: 2px;
+      }
+
+      .range {
+        font-size: 10px;
+      }
+    }
+
+    /* Narrow phones: buttons move below the D-pad */
+    @media (max-width: 560px) {
+      .pad-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: minmax(0, 1fr) auto;
+        grid-template-areas: "dpad dpad" "horn light";
+        justify-items: center;
+      }
+
+      .dpad-wrap {
+        grid-area: dpad;
+        width: 100%;
+      }
+
+      #Buzzer {
+        grid-area: horn;
+      }
+
+      #LED {
+        grid-area: light;
+      }
+
+      .aux {
+        width: 60px;
+        padding-bottom: 4px;
+      }
+    }
+
+    @media (min-width: 861px) {
+      .dashboard {
+        min-height: 640px;
+      }
+    }
+  </style>
 </head>
+
 <body>
-<div class="dashboard">
-  <header>
-    <div id="status" role="status">Not connected</div>
-    <h1>UGV Dashboard</h1>
-    <div class="actions">
-      <button id="connectBtn">Connect Bluetooth</button>
-      <button id="demoBtn" title="Show simulated data without the car">Demo</button>
-    </div>
-  </header>
+  <div class="dashboard">
+    <header>
+      <div id="status" role="status">Not connected</div>
+      <h1>UGV Dashboard</h1>
+      <div class="actions">
+        <button id="connectBtn">Connect Bluetooth</button>
+        <button id="demoBtn" title="Show simulated data without the car">Demo</button>
+      </div>
+    </header>
 
-  <section class="group sensors">
-    <div class="card sensor">
-      <h2>Temperature</h2>
-      <div class="value"><span id="temperature">—</span><small>°C</small></div>
-      <div class="range" id="temperatureRange">min — · max —</div>
-    </div>
-    <div class="card sensor">
-      <h2>Humidity</h2>
-      <div class="value"><span id="humidity">—</span><small>%</small></div>
-      <div class="range" id="humidityRange">min — · max —</div>
-    </div>
-    <div class="card sensor">
-      <h2>Pressure</h2>
-      <div class="value"><span id="pressure">—</span><small>hPa</small></div>
-      <div class="range" id="pressureRange">min — · max —</div>
-    </div>
-  </section>
+    <section class="group sensors">
+      <div class="card sensor">
+        <h2>Temperature</h2>
+        <div class="value"><span id="temperature">—</span><small>°C</small></div>
+        <div class="range" id="temperatureRange">min — · max —</div>
+      </div>
+      <div class="card sensor">
+        <h2>Humidity</h2>
+        <div class="value"><span id="humidity">—</span><small>%</small></div>
+        <div class="range" id="humidityRange">min — · max —</div>
+      </div>
+      <div class="card sensor">
+        <h2>Pressure</h2>
+        <div class="value"><span id="pressure">—</span><small>hPa</small></div>
+        <div class="range" id="pressureRange">min — · max —</div>
+      </div>
+    </section>
 
-  <section class="group main">
-    <div class="card panel" id="gyroPanel">
-      <div class="panel-head">
-        <h2>Gyro view</h2>
-        <div class="tools">
-          <button data-view="iso" class="on">3D</button>
-          <button data-view="back">Back</button>
-          <button data-view="side">Side</button>
-          <button data-view="top">Top</button>
-          <select id="mount" title="Direction the sensor's X arrow points on the car">
-            <option value="0">Sensor X: front</option>
-            <option value="90">Sensor X: left</option>
-            <option value="180">Sensor X: back</option>
-            <option value="270">Sensor X: right</option>
-          </select>
-          <button id="zeroBtn" title="Keep the car level and still, then press">Calibrate</button>
+    <section class="group main">
+      <div class="card panel" id="gyroPanel">
+        <div class="panel-head">
+          <h2>Gyro view</h2>
+          <div class="tools">
+            <button data-view="iso" class="on">3D</button>
+            <button data-view="back">Back</button>
+            <button data-view="side">Side</button>
+            <button data-view="top">Top</button>
+            <select id="mount" title="Direction the sensor's X arrow points on the car">
+              <option value="0">Sensor X: front</option>
+              <option value="90">Sensor X: left</option>
+              <option value="180">Sensor X: back</option>
+              <option value="270">Sensor X: right</option>
+            </select>
+            <button id="zeroBtn" title="Keep the car level and still, then press">Calibrate</button>
+          </div>
+        </div>
+        <div class="gyro-body">
+          <div class="angles">
+            <div class="angle" style="border-color:var(--x)"><span>Roll (X axis)</span><b id="roll">—</b><span
+                id="rollText">&nbsp;</span></div>
+            <div class="angle" style="border-color:var(--y)"><span>Pitch (Y axis)</span><b id="pitch">—</b><span
+                id="pitchText">&nbsp;</span></div>
+            <div class="angle" style="border-color:var(--z)"><span>Yaw (Z axis)</span><b id="yaw">—</b><span
+                id="yawText">&nbsp;</span></div>
+          </div>
+          <div id="scene">
+            <div id="sceneMsg">Loading 3D view…</div>
+          </div>
         </div>
       </div>
-      <div class="gyro-body">
-        <div class="angles">
-          <div class="angle" style="border-color:var(--x)"><span>Roll (X axis)</span><b id="roll">—</b><span id="rollText">&nbsp;</span></div>
-          <div class="angle" style="border-color:var(--y)"><span>Pitch (Y axis)</span><b id="pitch">—</b><span id="pitchText">&nbsp;</span></div>
-          <div class="angle" style="border-color:var(--z)"><span>Yaw (Z axis)</span><b id="yaw">—</b><span id="yawText">&nbsp;</span></div>
-        </div>
-        <div id="scene"><div id="sceneMsg">Loading 3D view…</div></div>
-      </div>
-    </div>
 
-    <div class="card panel" id="radarPanel">
-      <div class="panel-head">
-        <h2>Ultrasonic radar</h2>
-        <div class="tools">
-          <span class="note" id="radarReadout">angle — · distance —</span>
-          <select id="radarRange" title="Radar range">
-            <option value="50">50 cm</option>
-            <option value="100">100 cm</option>
-            <option value="200" selected>200 cm</option>
-            <option value="400">400 cm</option>
-          </select>
-          <button id="flipBtn" title="Use if left and right appear swapped">Mirror</button>
+      <div class="card panel" id="radarPanel">
+        <div class="panel-head">
+          <h2>Ultrasonic radar</h2>
+          <div class="tools">
+            <span class="note" id="radarReadout">angle — · distance —</span>
+            <select id="radarRange" title="Radar range">
+              <option value="50">50 cm</option>
+              <option value="100">100 cm</option>
+              <option value="200" selected>200 cm</option>
+              <option value="400">400 cm</option>
+            </select>
+            <button id="flipBtn" title="Use if left and right appear swapped">Mirror</button>
+          </div>
         </div>
+        <div class="canvas-wrap"><canvas id="radar"></canvas></div>
       </div>
-      <div class="canvas-wrap"><canvas id="radar"></canvas></div>
-    </div>
 
-    <div class="card panel" id="accelPanel">
-      <div class="panel-head"><h2>Acceleration meter</h2><span class="note">m/s²</span></div>
-      <div class="accel-body">
-        <div class="gmeter"><canvas id="gmeter"></canvas></div>
-        <div class="bars">
-          <div><div class="bar-label"><span style="color:var(--x)">X</span><span id="axText">—</span></div><div class="bar"><i id="axBar" style="background:var(--x)"></i></div></div>
-          <div><div class="bar-label"><span style="color:var(--y)">Y</span><span id="ayText">—</span></div><div class="bar"><i id="ayBar" style="background:var(--y)"></i></div></div>
-          <div><div class="bar-label"><span style="color:var(--z)">Z</span><span id="azText">—</span></div><div class="bar"><i id="azBar" style="background:var(--z)"></i></div></div>
-          <div class="note">Bars: raw sensor<br>Dot: motion, gravity removed</div>
+      <div class="card panel" id="accelPanel">
+        <div class="panel-head">
+          <h2>Acceleration meter</h2><span class="note">m/s²</span>
         </div>
-      </div>
-    </div>
-
-    <div class="card panel" id="padPanel">
-      <h2>Controller - WASD</h2>
-      <div class="dpad-wrap">
-        <div class="dpad">
-          <svg viewBox="0 0 240 240" aria-label="Direction pad">
-            <defs>
-              <linearGradient id="plastic" x1="0" y1="0" x2="0" y2="240" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="#5a5a5e"/>
-                <stop offset="1" stop-color="#29292c"/>
-              </linearGradient>
-              <radialGradient id="well">
-                <stop offset="0" stop-color="#0b0b0b"/>
-                <stop offset=".85" stop-color="#202022"/>
-                <stop offset="1" stop-color="#303033"/>
-              </radialGradient>
-            </defs>
-            <circle cx="120" cy="120" r="118" fill="url(#well)" stroke="#444" stroke-width="2"/>
-            <!-- Each key is drawn as "up", then rotated into place -->
-            <g class="key" data-cmd="F" tabindex="0" role="button" aria-label="Forward (W)">
-              <g class="face">
-                <path class="cap" d="M90 20 Q90 12 98 12 L142 12 Q150 12 150 20 L150 74 Q150 78 147 81 L125 105 Q120 110 115 105 L93 81 Q90 78 90 74 Z"/>
-                <path class="shine" d="M94 72 L94 22 Q94 16 100 16 L140 16 Q146 16 146 22"/>
-                <path class="arrow" d="M120 24 L134 46 L106 46 Z"/>
-                <text x="120" y="70">W</text>
-              </g>
-            </g>
-            <g class="key" data-cmd="L" tabindex="0" role="button" aria-label="Left (A)">
-              <g class="face">
-                <path class="cap" transform="rotate(-90 120 120)" d="M90 20 Q90 12 98 12 L142 12 Q150 12 150 20 L150 74 Q150 78 147 81 L125 105 Q120 110 115 105 L93 81 Q90 78 90 74 Z"/>
-                <path class="arrow" d="M24 120 L46 106 L46 134 Z"/>
-                <text x="70" y="120">A</text>
-              </g>
-            </g>
-            <g class="key" data-cmd="B" tabindex="0" role="button" aria-label="Backward (S)">
-              <g class="face">
-                <path class="cap" transform="rotate(180 120 120)" d="M90 20 Q90 12 98 12 L142 12 Q150 12 150 20 L150 74 Q150 78 147 81 L125 105 Q120 110 115 105 L93 81 Q90 78 90 74 Z"/>
-                <path class="arrow" d="M120 216 L106 194 L134 194 Z"/>
-                <text x="120" y="170">S</text>
-              </g>
-            </g>
-            <g class="key" data-cmd="R" tabindex="0" role="button" aria-label="Right (D)">
-              <g class="face">
-                <path class="cap" transform="rotate(90 120 120)" d="M90 20 Q90 12 98 12 L142 12 Q150 12 150 20 L150 74 Q150 78 147 81 L125 105 Q120 110 115 105 L93 81 Q90 78 90 74 Z"/>
-                <path class="arrow" d="M216 120 L194 134 L194 106 Z"/>
-                <text x="170" y="120">D</text>
-              </g>
-            </g>
-          </svg>
+        <div class="accel-body">
+          <div class="gmeter"><canvas id="gmeter"></canvas></div>
+          <div class="bars">
+            <div>
+              <div class="bar-label"><span style="color:var(--x)">X</span><span id="axText">—</span></div>
+              <div class="bar"><i id="axBar" style="background:var(--x)"></i></div>
+            </div>
+            <div>
+              <div class="bar-label"><span style="color:var(--y)">Y</span><span id="ayText">—</span></div>
+              <div class="bar"><i id="ayBar" style="background:var(--y)"></i></div>
+            </div>
+            <div>
+              <div class="bar-label"><span style="color:var(--z)">Z</span><span id="azText">—</span></div>
+              <div class="bar"><i id="azBar" style="background:var(--z)"></i></div>
+            </div>
+            <div class="note">Bars: raw sensor<br>Dot: motion, gravity removed</div>
+          </div>
         </div>
       </div>
-      <div id="driveState">Stopped</div>
-    </div>
-  </section>
-</div>
 
-<script>
-"use strict";
-const $ = id => document.getElementById(id);
-const DEG = 180 / Math.PI;
-const G = 9.80665;
+      <div class="card panel" id="padPanel">
+        <h2>Controller - WASD · Q · E</h2>
+        <div class="pad-row">
+          <button type="button" id="Buzzer" class="aux" aria-pressed="false" aria-label="Horn (hold Q)"
+            title="Hold Q to sound the horn">
+            <span class="cap"><img src="horn-svgrepo-com.svg" alt="" draggable="false"></span>
+            <span class="label">Horn</span>
+            <kbd>Q</kbd>
+          </button>
+          <div class="dpad-wrap">
+            <div class="dpad">
+              <svg viewBox="0 0 240 240" aria-label="Direction pad">
+                <defs>
+                  <linearGradient id="plastic" x1="0" y1="0" x2="0" y2="240" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stop-color="#5a5a5e" />
+                    <stop offset="1" stop-color="#29292c" />
+                  </linearGradient>
+                  <radialGradient id="well">
+                    <stop offset="0" stop-color="#0b0b0b" />
+                    <stop offset=".85" stop-color="#202022" />
+                    <stop offset="1" stop-color="#303033" />
+                  </radialGradient>
+                </defs>
+                <circle cx="120" cy="120" r="118" fill="url(#well)" stroke="#444" stroke-width="2" />
+                <!-- Each key is drawn as "up", then rotated into place -->
+                <g class="key" data-cmd="F" tabindex="0" role="button" aria-label="Forward (W)">
+                  <g class="face">
+                    <path class="cap"
+                      d="M90 20 Q90 12 98 12 L142 12 Q150 12 150 20 L150 74 Q150 78 147 81 L125 105 Q120 110 115 105 L93 81 Q90 78 90 74 Z" />
+                    <path class="shine" d="M94 72 L94 22 Q94 16 100 16 L140 16 Q146 16 146 22" />
+                    <path class="arrow" d="M120 24 L134 46 L106 46 Z" />
+                    <text x="120" y="70">W</text>
+                  </g>
+                </g>
+                <g class="key" data-cmd="L" tabindex="0" role="button" aria-label="Left (A)">
+                  <g class="face">
+                    <path class="cap" transform="rotate(-90 120 120)"
+                      d="M90 20 Q90 12 98 12 L142 12 Q150 12 150 20 L150 74 Q150 78 147 81 L125 105 Q120 110 115 105 L93 81 Q90 78 90 74 Z" />
+                    <path class="arrow" d="M24 120 L46 106 L46 134 Z" />
+                    <text x="70" y="120">A</text>
+                  </g>
+                </g>
+                <g class="key" data-cmd="B" tabindex="0" role="button" aria-label="Backward (S)">
+                  <g class="face">
+                    <path class="cap" transform="rotate(180 120 120)"
+                      d="M90 20 Q90 12 98 12 L142 12 Q150 12 150 20 L150 74 Q150 78 147 81 L125 105 Q120 110 115 105 L93 81 Q90 78 90 74 Z" />
+                    <path class="arrow" d="M120 216 L106 194 L134 194 Z" />
+                    <text x="120" y="170">S</text>
+                  </g>
+                </g>
+                <g class="key" data-cmd="R" tabindex="0" role="button" aria-label="Right (D)">
+                  <g class="face">
+                    <path class="cap" transform="rotate(90 120 120)"
+                      d="M90 20 Q90 12 98 12 L142 12 Q150 12 150 20 L150 74 Q150 78 147 81 L125 105 Q120 110 115 105 L93 81 Q90 78 90 74 Z" />
+                    <path class="arrow" d="M216 120 L194 134 L194 106 Z" />
+                    <text x="170" y="120">D</text>
+                  </g>
+                </g>
+              </svg>
+            </div>
+          </div>
+          <button type="button" id="LED" class="aux" aria-pressed="false" aria-label="Car lights (E)"
+            title="Press E to switch the lights on or off">
+            <span class="cap"><img src="car-lights-svgrepo-com.svg" alt="" draggable="false"></span>
+            <span class="label">Lights</span>
+            <kbd>E</kbd>
+          </button>
+        </div>
+        <div id="driveState">Stopped</div>
+      </div>
+    </section>
+  </div>
 
-/* ---------------- shared state ---------------- */
-const att = { roll: 0, pitch: 0, yaw: 0, ready: false, lastT: null };  // radians, sensor frame rotated to car frame
-const level = { roll: 0, pitch: 0 };
-let gyroBias = [0, 0, 0];
-let calibration = null;            // collects samples while calibrating
-let accel = null;                  // latest acceleration in car frame
-let linear = { x: 0, y: 0 };
-const echoes = new Map();          // servo angle -> { distance, time }
-let sweep = { angle: 90, distance: 0, seen: false };
-let mirrored = false;
-let lastPacket = 0;
+  <script>
+    "use strict";
+    const $ = id => document.getElementById(id);
+    const DEG = 180 / Math.PI;
+    const G = 9.80665;
 
-/* ---------------- sensor cards ---------------- */
-const limits = {};
-function showSensor(name, value, digits) {
-  if (typeof value !== "number") { $(name).textContent = "—"; return; }
-  $(name).textContent = value.toFixed(digits);
-  const l = limits[name] || (limits[name] = { min: value, max: value });
-  l.min = Math.min(l.min, value);
-  l.max = Math.max(l.max, value);
-  $(name + "Range").textContent = `min ${l.min.toFixed(digits)} · max ${l.max.toFixed(digits)}`;
-}
+    /* ---------------- shared state ---------------- */
+    const att = { roll: 0, pitch: 0, yaw: 0, ready: false, lastT: null };  // radians, sensor frame rotated to car frame
+    const level = { roll: 0, pitch: 0 };
+    let gyroBias = [0, 0, 0];
+    let calibration = null;            // collects samples while calibrating
+    let accel = null;                  // latest acceleration in car frame
+    let linear = { x: 0, y: 0 };
+    const echoes = new Map();          // servo angle -> { distance, time }
+    let sweep = { angle: 90, distance: 0, seen: false };
+    let mirrored = false;
+    let lastPacket = 0;
 
-/* ---------------- orientation ---------------- */
-// Car frame: X forward, Y left, Z up. The sensor must be mounted flat, Z up.
-function toCarFrame(x, y, z) {
-  const a = Number($("mount").value) / DEG;
-  return [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a), z];
-}
-const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
-
-function updateOrientation(d) {
-  const keys = ["ax", "ay", "az", "gx", "gy", "gz"];
-  if (!keys.every(k => typeof d[k] === "number")) {
-    accel = null; att.ready = false;
-    return;
-  }
-  const [ax, ay, az] = toCarFrame(d.ax, d.ay, d.az);
-  const raw = toCarFrame(d.gx, d.gy, d.gz);
-  accel = { x: ax, y: ay, z: az };
-
-  const accRoll = Math.atan2(ay, az);
-  const accPitch = Math.atan2(-ax, Math.hypot(ay, az));
-
-  // Use the car's own clock, because Bluetooth packets can arrive in bursts
-  const t = typeof d.t === "number" ? d.t : performance.now();
-  const dt = att.lastT === null ? 0 : (t - att.lastT) / 1000;
-  att.lastT = t;
-
-  if (calibration) {
-    calibration.push({ gyro: raw, roll: accRoll, pitch: accPitch });
-    if (calibration.length >= 40) finishCalibration();
-  }
-
-  if (!att.ready || dt <= 0 || dt > 0.5) {
-    att.roll = accRoll;
-    att.pitch = accPitch;
-    att.ready = true;
-  } else {
-    const [p, q, r] = raw.map((v, i) => v - gyroBias[i]);
-    const sr = Math.sin(att.roll), cr = Math.cos(att.roll);
-    const cp = Math.max(Math.cos(att.pitch), 0.1);
-    const tp = Math.sin(att.pitch) / cp;
-    const rollRate = p + (sr * q + cr * r) * tp;
-    const pitchRate = cr * q - sr * r;
-    const yawRate = (sr * q + cr * r) / cp;
-
-    att.roll = wrap(att.roll + rollRate * dt);
-    att.pitch += pitchRate * dt;
-    att.yaw = wrap(att.yaw + yawRate * dt);
-
-    // Complementary filter: gently correct drift using gravity
-    const size = Math.hypot(ax, ay, az) / G;
-    if (size > 0.8 && size < 1.2) {
-      const k = dt / (0.5 + dt);
-      att.roll = wrap(att.roll + k * wrap(accRoll - att.roll));
-      att.pitch += k * (accPitch - att.pitch);
+    /* ---------------- sensor cards ---------------- */
+    const limits = {};
+    function showSensor(name, value, digits) {
+      if (typeof value !== "number") { $(name).textContent = "—"; return; }
+      $(name).textContent = value.toFixed(digits);
+      const l = limits[name] || (limits[name] = { min: value, max: value });
+      l.min = Math.min(l.min, value);
+      l.max = Math.max(l.max, value);
+      $(name + "Range").textContent = `min ${l.min.toFixed(digits)} · max ${l.max.toFixed(digits)}`;
     }
-  }
 
-  linear = {
-    x: ax + G * Math.sin(att.pitch),
-    y: ay - G * Math.cos(att.pitch) * Math.sin(att.roll)
-  };
-}
+    /* ---------------- orientation ---------------- */
+    // Car frame: X forward, Y left, Z up. The sensor must be mounted flat, Z up.
+    function toCarFrame(x, y, z) {
+      const a = Number($("mount").value) / DEG;
+      return [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a), z];
+    }
+    const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
 
-function startCalibration() {
-  if (!accel) { setStatus("No MPU-6050 data to calibrate", "warn"); return; }
-  calibration = [];
-  $("zeroBtn").textContent = "Hold still…";
-}
-function finishCalibration() {
-  const n = calibration.length;
-  const mean = f => calibration.reduce((s, c) => s + f(c), 0) / n;
-  const bias = [0, 1, 2].map(i => mean(c => c.gyro[i]));
-  const moved = calibration.some(c => c.gyro.some((v, i) => Math.abs(v - bias[i]) > 0.1));
-  if (!moved) {
-    gyroBias = bias;
-    level.roll = mean(c => c.roll);
-    level.pitch = mean(c => c.pitch);
-    att.yaw = 0;
-  }
-  calibration = null;
-  $("zeroBtn").textContent = moved ? "Moved! Retry" : "Calibrate";
-}
-$("zeroBtn").onclick = startCalibration;
-$("mount").onchange = () => {
-  gyroBias = [0, 0, 0]; level.roll = level.pitch = 0;
-  att.ready = false; att.yaw = 0;
-};
-
-// Angles as shown on screen (level offset removed)
-function shownAngles() {
-  return { roll: wrap(att.roll - level.roll), pitch: att.pitch - level.pitch, yaw: att.yaw };
-}
-
-function showAngles() {
-  if (!att.ready) {
-    for (const n of ["roll", "pitch", "yaw"]) { $(n).textContent = "—"; $(n + "Text").textContent = "no data"; }
-    return;
-  }
-  const a = shownAngles();
-  const show = (name, rad, positive, negative, flat) => {
-    const deg = rad * DEG;
-    $(name).textContent = Math.abs(deg).toFixed(1) + "°";
-    $(name + "Text").textContent = Math.abs(deg) < 1.5 ? flat : deg > 0 ? positive : negative;
-  };
-  show("roll", a.roll, "right side down", "left side down", "level");
-  show("pitch", -a.pitch, "nose up", "nose down", "level");
-  show("yaw", a.yaw, "turned left", "turned right", "straight");
-}
-
-/* ---------------- acceleration meter ---------------- */
-function fitCanvas(canvas) {
-  const w = canvas.clientWidth, h = canvas.clientHeight, s = window.devicePixelRatio || 1;
-  if (canvas.width !== Math.round(w * s) || canvas.height !== Math.round(h * s)) {
-    canvas.width = Math.round(w * s);
-    canvas.height = Math.round(h * s);
-  }
-  const c = canvas.getContext("2d");
-  c.setTransform(s, 0, 0, s, 0, 0);
-  c.clearRect(0, 0, w, h);
-  return { c, w, h };
-}
-
-const dot = { x: 0, y: 0 };
-function drawAccel() {
-  const { c, w, h } = fitCanvas($("gmeter"));
-  const cx = w / 2, cy = h / 2, R = Math.max(10, Math.min(w, h) / 2 - 16);
-  const full = 5;  // m/s² at the outer ring
-
-  c.strokeStyle = "#555"; c.lineWidth = 1.5;
-  for (const f of [1, 0.66, 0.33]) { c.beginPath(); c.arc(cx, cy, R * f, 0, 2 * Math.PI); c.stroke(); }
-  c.beginPath(); c.moveTo(cx - R, cy); c.lineTo(cx + R, cy); c.moveTo(cx, cy - R); c.lineTo(cx, cy + R); c.stroke();
-  c.fillStyle = "#999"; c.font = "11px monospace"; c.textAlign = "center"; c.textBaseline = "middle";
-  c.fillText("FWD", cx, cy - R - 8);
-  c.fillText("BACK", cx, cy + R + 9);
-
-  let tx = 0, ty = 0, size = 0;
-  if (accel) {
-    size = Math.hypot(linear.x, linear.y);
-    const k = Math.min(1, full / (size || 1));
-    tx = -linear.y * k / full;   // car +Y is left, screen +X is right
-    ty = -linear.x * k / full;
-  }
-  dot.x += (tx - dot.x) * 0.3;
-  dot.y += (ty - dot.y) * 0.3;
-  if (accel) {
-    c.fillStyle = "#4fd1c5";
-    c.beginPath(); c.arc(cx + dot.x * R, cy + dot.y * R, 7, 0, 2 * Math.PI); c.fill();
-    c.fillStyle = "#eee"; c.textAlign = "left";
-    c.fillText("motion " + size.toFixed(1), 2, h - 8);
-  }
-
-  for (const axis of ["x", "y", "z"]) {
-    const v = accel ? accel[axis] : 0;
-    $("a" + axis + "Text").textContent = accel ? v.toFixed(2) : "—";
-    const pct = Math.min(Math.abs(v) / (2 * G), 1) * 50;
-    const bar = $("a" + axis + "Bar");
-    bar.style.width = pct + "%";
-    bar.style.left = (v >= 0 ? 50 : 50 - pct) + "%";
-  }
-}
-
-/* ---------------- radar ---------------- */
-const FADE_MS = 6000;
-$("flipBtn").onclick = e => { mirrored = !mirrored; e.target.classList.toggle("on", mirrored); };
-
-function drawRadar() {
-  const { c, w, h } = fitCanvas($("radar"));
-  const cx = w / 2, cy = h - 18;
-  const R = Math.max(10, Math.min(w / 2 - 34, cy - 24));
-  const max = Number($("radarRange").value);
-  const point = (deg, r) => {
-    const a = (mirrored ? 180 - deg : deg) / DEG;
-    return [cx + r * Math.cos(a), cy - r * Math.sin(a)];
-  };
-  const line = (deg, r) => { c.beginPath(); c.moveTo(cx, cy); c.lineTo(...point(deg, r)); c.stroke(); };
-
-  c.strokeStyle = "#2f6b45"; c.lineWidth = 1;
-  c.font = "11px monospace"; c.textBaseline = "middle"; c.textAlign = "center";
-  for (let i = 1; i <= 4; i++) {
-    c.beginPath(); c.arc(cx, cy, R * i / 4, Math.PI, 2 * Math.PI); c.stroke();
-    c.fillStyle = "#7fae8d";
-    c.fillText(max * i / 4, cx + R * i / 4, cy + 10);
-  }
-  for (let d = 0; d <= 180; d += 30) {
-    line(d, R);
-    const [x, y] = point(d, R + 15);
-    if (d > 0 && d < 180) c.fillText(d + "°", x, y);
-  }
-
-  const now = performance.now();
-  for (const [deg, e] of echoes) {
-    const age = now - e.time;
-    if (age > FADE_MS) { echoes.delete(deg); continue; }
-    if (e.distance <= 0 || e.distance > max) continue;   // 0 means no echo
-    const alpha = 1 - age / FADE_MS;
-    const r = R * e.distance / max;
-    c.strokeStyle = `rgba(255,92,92,${alpha * 0.35})`;
-    c.lineWidth = 2;
-    c.beginPath(); c.moveTo(...point(deg, r)); c.lineTo(...point(deg, R)); c.stroke();
-    c.fillStyle = `rgba(255,92,92,${alpha})`;
-    c.beginPath(); c.arc(...point(deg, r), 3.5, 0, 2 * Math.PI); c.fill();
-  }
-
-  if (sweep.seen) {
-    c.strokeStyle = "#5ee07a"; c.lineWidth = 2.5;
-    line(sweep.angle, R);
-  }
-}
-
-/* ---------------- incoming data ---------------- */
-function handleData(d) {
-  lastPacket = performance.now();
-  showSensor("temperature", d.temperature, 1);
-  showSensor("humidity", d.humidity, 1);
-  showSensor("pressure", d.pressure, 1);
-
-  if (typeof d.angle === "number" && typeof d.distance === "number") {
-    sweep = { angle: d.angle, distance: d.distance, seen: true };
-    // Remove points from the previous sweep next to this angle
-    for (const [k, e] of echoes)
-      if (Math.abs(k - d.angle) <= 1 && lastPacket - e.time > 1000) echoes.delete(k);
-    echoes.set(d.angle, { distance: d.distance, time: lastPacket });
-    $("radarReadout").textContent =
-      `angle ${d.angle}° · distance ${d.distance > 0 ? d.distance + " cm" : "no echo"}`;
-  }
-  updateOrientation(d);
-}
-
-function resetData() {
-  att.ready = false; att.lastT = null; att.yaw = 0;
-  accel = null; calibration = null; sweep.seen = false;
-  gyroBias = [0, 0, 0]; level.roll = level.pitch = 0;
-  echoes.clear(); lastPacket = 0;
-  for (const n of ["temperature", "humidity", "pressure"]) {
-    delete limits[n];
-    $(n).textContent = "—";
-    $(n + "Range").textContent = "min — · max —";
-  }
-  $("radarReadout").textContent = "angle — · distance —";
-  $("zeroBtn").textContent = "Calibrate";
-}
-
-/* ---------------- Bluetooth (Web Serial) ---------------- */
-let link = null;   // { port, reader, writer }
-let busy = false;
-
-function setStatus(text, kind = "") {
-  $("status").textContent = text;
-  $("status").className = kind;
-}
-
-async function connect() {
-  if (!("serial" in navigator)) {
-    setStatus("This browser has no Web Serial. Use Chrome or Edge.", "warn");
-    return;
-  }
-  stopDemo();
-  busy = true;
-  let port;
-  try {
-    port = await navigator.serial.requestPort();
-    setStatus("Connecting…", "warn");
-    await port.open({ baudRate: 115200 });
-    resetData();
-    writing = false;
-    link = { port, reader: port.readable.getReader(), writer: port.writable.getWriter() };
-    $("connectBtn").textContent = "Disconnect";
-    setStatus("Connected, waiting for data…", "warn");
-    releaseAll();
-    readLoop(link);
-  } catch (err) {
-    if (port) await port.close().catch(() => {});
-    setStatus(err.name === "NotFoundError" ? "No port selected" : "Could not connect: " + err.message, "warn");
-  } finally {
-    busy = false;
-  }
-}
-
-async function readLoop(current) {
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let reason = "Disconnected";
-  try {
-    while (true) {
-      const { value, done } = await current.reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop().slice(-1000);
-      for (const text of lines) {
-        let data;
-        try { data = JSON.parse(text); } catch { continue; }  // partial line
-        if (data && typeof data === "object") handleData(data);
+    function updateOrientation(d) {
+      const keys = ["ax", "ay", "az", "gx", "gy", "gz"];
+      if (!keys.every(k => typeof d[k] === "number")) {
+        accel = null; att.ready = false;
+        return;
       }
+      const [ax, ay, az] = toCarFrame(d.ax, d.ay, d.az);
+      const raw = toCarFrame(d.gx, d.gy, d.gz);
+      accel = { x: ax, y: ay, z: az };
+
+      const accRoll = Math.atan2(ay, az);
+      const accPitch = Math.atan2(-ax, Math.hypot(ay, az));
+
+      // Use the car's own clock, because Bluetooth packets can arrive in bursts
+      const t = typeof d.t === "number" ? d.t : performance.now();
+      const dt = att.lastT === null ? 0 : (t - att.lastT) / 1000;
+      att.lastT = t;
+
+      if (calibration) {
+        calibration.push({ gyro: raw, roll: accRoll, pitch: accPitch });
+        if (calibration.length >= 40) finishCalibration();
+      }
+
+      if (!att.ready || dt <= 0 || dt > 0.5) {
+        att.roll = accRoll;
+        att.pitch = accPitch;
+        att.ready = true;
+      } else {
+        const [p, q, r] = raw.map((v, i) => v - gyroBias[i]);
+        const sr = Math.sin(att.roll), cr = Math.cos(att.roll);
+        const cp = Math.max(Math.cos(att.pitch), 0.1);
+        const tp = Math.sin(att.pitch) / cp;
+        const rollRate = p + (sr * q + cr * r) * tp;
+        const pitchRate = cr * q - sr * r;
+        const yawRate = (sr * q + cr * r) / cp;
+
+        att.roll = wrap(att.roll + rollRate * dt);
+        att.pitch += pitchRate * dt;
+        att.yaw = wrap(att.yaw + yawRate * dt);
+
+        // Complementary filter: gently correct drift using gravity
+        const size = Math.hypot(ax, ay, az) / G;
+        if (size > 0.8 && size < 1.2) {
+          const k = dt / (0.5 + dt);
+          att.roll = wrap(att.roll + k * wrap(accRoll - att.roll));
+          att.pitch += k * (accPitch - att.pitch);
+        }
+      }
+
+      linear = {
+        x: ax + G * Math.sin(att.pitch),
+        y: ay - G * Math.cos(att.pitch) * Math.sin(att.roll)
+      };
     }
-  } catch (err) {
-    reason = "Connection lost: " + err.message;
-  }
-  if (link === current) disconnect(reason);
-}
 
-const within = (promise, ms) =>
-  Promise.race([promise.catch(() => {}), new Promise(r => setTimeout(r, ms))]);
-
-async function disconnect(reason = "Disconnected") {
-  const old = link;
-  if (!old) return;
-  releaseAll();
-  link = null;
-  busy = true;
-  await within(old.writer.write(new TextEncoder().encode("S")), 300);
-  await within(old.reader.cancel(), 500);
-  old.reader.releaseLock();
-  await within(old.writer.close(), 500);
-  old.writer.releaseLock();
-  await within(old.port.close(), 1000);
-  $("connectBtn").textContent = "Connect Bluetooth";
-  setStatus(reason);
-  busy = false;
-}
-
-$("connectBtn").onclick = e => {
-  e.target.blur();
-  if (busy) return;
-  link ? disconnect() : connect();
-};
-
-/* ---------------- driving ---------------- */
-const NAMES = { F: "Forward", B: "Backward", L: "Turning left", R: "Turning right", S: "Stopped" };
-const KEYS = { KeyW: "F", KeyA: "L", KeyS: "B", KeyD: "R", ArrowUp: "F", ArrowLeft: "L", ArrowDown: "B", ArrowRight: "R" };
-const held = new Map();   // input source -> command; the newest one wins
-let command = "S";
-let writing = false;
-
-async function sendCommand() {
-  if (!link || writing) return;
-  const current = link;
-  writing = true;
-  const sent = command;
-  try { await current.writer.write(new TextEncoder().encode(sent)); }
-  catch { /* the read loop reports lost connections */ }
-  writing = false;
-  if (sent !== command) sendCommand();
-}
-
-function updateCommand() {
-  const next = [...held.values()].pop() || "S";
-  document.querySelectorAll(".key").forEach(k =>
-    k.classList.toggle("pressed", [...held.values()].includes(k.dataset.cmd)));
-  $("driveState").textContent = NAMES[next] + (!link && next !== "S" ? " (car not connected)" : "");
-  if (next !== command) { command = next; sendCommand(); }
-}
-function press(source, cmd) { held.delete(source); held.set(source, cmd); updateCommand(); }
-function release(source) { held.delete(source); updateCommand(); }
-function releaseAll() { held.clear(); updateCommand(); }
-
-// Repeat the command; the car stops by itself if these stop arriving
-setInterval(sendCommand, 100);
-
-addEventListener("keydown", e => {
-  if (e.code === "Space") { e.preventDefault(); releaseAll(); return; }
-  const onKey = e.target.closest && e.target.closest(".key");
-  if (onKey && e.code === "Enter") { e.preventDefault(); press("enter", onKey.dataset.cmd); return; }
-  if (!KEYS[e.code] || e.ctrlKey || e.metaKey || e.altKey) return;
-  e.preventDefault();
-  if (!e.repeat) press(e.code, KEYS[e.code]);
-});
-addEventListener("keyup", e => release(e.code === "Enter" ? "enter" : e.code));
-addEventListener("blur", releaseAll);
-document.addEventListener("visibilitychange", () => { if (document.hidden) releaseAll(); });
-
-document.querySelectorAll(".key").forEach(key => {
-  key.addEventListener("pointerdown", e => {
-    e.preventDefault();
-    key.setPointerCapture(e.pointerId);
-    press("pointer" + e.pointerId, key.dataset.cmd);
-  });
-  for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
-    key.addEventListener(type, e => release("pointer" + e.pointerId));
-  key.addEventListener("contextmenu", e => e.preventDefault());
-});
-
-/* ---------------- demo mode ---------------- */
-let demoTimer = null;
-function stopDemo() {
-  if (!demoTimer) return;
-  clearInterval(demoTimer);
-  demoTimer = null;
-  $("demoBtn").classList.remove("on");
-  resetData();
-  setStatus("Not connected");
-}
-$("demoBtn").onclick = e => {
-  e.target.blur();
-  if (link || busy) return;
-  if (demoTimer) { stopDemo(); return; }
-  resetData();
-  e.target.classList.add("on");
-  let n = 0, angle = 15, dir = 1;
-  demoTimer = setInterval(() => {
-    const t = ++n * 0.05;
-    const roll = 0.25 * Math.sin(t * 0.9), pitch = 0.18 * Math.sin(t * 0.6);
-    const rollRate = 0.225 * Math.cos(t * 0.9), pitchRate = 0.108 * Math.cos(t * 0.6), yawRate = 0.35 * Math.cos(t * 0.4);
-    angle += dir * 2;
-    if (angle >= 165 || angle <= 15) dir = -dir;
-    const wall = angle > 50 && angle < 85 ? 70 + 8 * Math.sin(angle / 7) : angle > 112 && angle < 138 ? 135 : 0;
-    handleData({
-      t: n * 50, angle, distance: Math.round(wall),
-      temperature: 27.4 + 0.4 * Math.sin(t / 5), humidity: 56 + 2 * Math.sin(t / 7), pressure: 1008.3 + 0.3 * Math.sin(t / 9),
-      ax: -G * Math.sin(pitch) + 1.2 * Math.sin(t * 1.7),
-      ay: G * Math.cos(pitch) * Math.sin(roll) + 0.8 * Math.cos(t * 1.3),
-      az: G * Math.cos(pitch) * Math.cos(roll),
-      gx: rollRate - yawRate * Math.sin(pitch),
-      gy: pitchRate * Math.cos(roll) + yawRate * Math.cos(pitch) * Math.sin(roll),
-      gz: yawRate * Math.cos(pitch) * Math.cos(roll) - pitchRate * Math.sin(roll)
-    });
-  }, 50);
-};
-
-/* ---------------- 3D gyro view ---------------- */
-let view3d = null;
-async function init3d() {
-  let THREE;
-  try {
-    THREE = await import("https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js");
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x333344, 2.2));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-    sun.position.set(3, 6, 4);
-    scene.add(sun);
-    const grid = new THREE.GridHelper(8, 16, 0x666666, 0x333333);
-    grid.position.y = -0.75;
-    scene.add(grid);
-
-    // Three.js frame: +X forward, +Y up, +Z right
-    const car = new THREE.Group();
-    scene.add(car);
-    const add = (geometry, color, x, y, z, parent = car) => {
-      const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color, roughness: 0.6 }));
-      mesh.position.set(x, y, z);
-      parent.add(mesh);
-      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 35),
-        new THREE.LineBasicMaterial({ color: 0x0a0a0a }));
-      mesh.add(edges);
-      return mesh;
+    function startCalibration() {
+      if (!accel) { setStatus("No MPU-6050 data to calibrate", "warn"); return; }
+      calibration = [];
+      $("zeroBtn").textContent = "Hold still…";
+    }
+    function finishCalibration() {
+      const n = calibration.length;
+      const mean = f => calibration.reduce((s, c) => s + f(c), 0) / n;
+      const bias = [0, 1, 2].map(i => mean(c => c.gyro[i]));
+      const moved = calibration.some(c => c.gyro.some((v, i) => Math.abs(v - bias[i]) > 0.1));
+      if (!moved) {
+        gyroBias = bias;
+        level.roll = mean(c => c.roll);
+        level.pitch = mean(c => c.pitch);
+        att.yaw = 0;
+      }
+      calibration = null;
+      $("zeroBtn").textContent = moved ? "Moved! Retry" : "Calibrate";
+    }
+    $("zeroBtn").onclick = startCalibration;
+    $("mount").onchange = () => {
+      gyroBias = [0, 0, 0]; level.roll = level.pitch = 0;
+      att.ready = false; att.yaw = 0;
     };
-    const box = (x, y, z) => new THREE.BoxGeometry(x, y, z);
-    add(box(2.2, 0.3, 1.15), 0x2f8f87, 0, 0, 0);                 // chassis
-    add(box(0.9, 0.28, 0.8), 0x3a3f4b, -0.4, 0.29, 0);           // electronics deck
-    add(box(0.08, 0.1, 0.22), 0xfff3a0, 1.13, 0.02, -0.36);      // headlights (front)
-    add(box(0.08, 0.1, 0.22), 0xfff3a0, 1.13, 0.02, 0.36);
-    add(box(0.08, 0.1, 0.9), 0xd63c3c, -1.13, 0.02, 0);          // tail light (back)
-    const wheel = new THREE.CylinderGeometry(0.34, 0.34, 0.25, 24).rotateX(Math.PI / 2);
-    for (const x of [-0.72, 0.72]) for (const z of [-0.74, 0.74]) {
-      add(wheel, 0x1b1b1b, x, -0.1, z);
-      add(new THREE.CylinderGeometry(0.13, 0.13, 0.27, 12).rotateX(Math.PI / 2), 0xbbbbbb, x, -0.1, z);
-    }
-    // Arrow on the roof pointing forward
-    const shape = new THREE.Shape();
-    [[0.5, 0], [0.1, 0.3], [0.1, 0.12], [-0.3, 0.12], [-0.3, -0.12], [0.1, -0.12], [0.1, -0.3]]
-      .forEach(([x, y], i) => i ? shape.lineTo(x, y) : shape.moveTo(x, y));
-    add(new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2), 0xffc857, 0.55, 0.165, 0);
-    // Ultrasonic sensor that turns with the servo
-    const head = new THREE.Group();
-    head.position.set(0.85, 0.42, 0);
-    car.add(head);
-    add(box(0.12, 0.24, 0.5), 0x2255aa, 0, 0, 0, head);
-    for (const z of [-0.13, 0.13])
-      add(new THREE.CylinderGeometry(0.09, 0.09, 0.12, 16).rotateZ(Math.PI / 2), 0xcccccc, 0.1, 0, z, head);
 
-    function label(text, color, position) {
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = 128;
+    // Angles as shown on screen (level offset removed)
+    function shownAngles() {
+      return { roll: wrap(att.roll - level.roll), pitch: att.pitch - level.pitch, yaw: att.yaw };
+    }
+
+    function showAngles() {
+      if (!att.ready) {
+        for (const n of ["roll", "pitch", "yaw"]) { $(n).textContent = "—"; $(n + "Text").textContent = "no data"; }
+        return;
+      }
+      const a = shownAngles();
+      const show = (name, rad, positive, negative, flat) => {
+        const deg = rad * DEG;
+        $(name).textContent = Math.abs(deg).toFixed(1) + "°";
+        $(name + "Text").textContent = Math.abs(deg) < 1.5 ? flat : deg > 0 ? positive : negative;
+      };
+      show("roll", a.roll, "right side down", "left side down", "level");
+      show("pitch", -a.pitch, "nose up", "nose down", "level");
+      show("yaw", a.yaw, "turned left", "turned right", "straight");
+    }
+
+    /* ---------------- acceleration meter ---------------- */
+    function fitCanvas(canvas) {
+      const w = canvas.clientWidth, h = canvas.clientHeight, s = window.devicePixelRatio || 1;
+      if (canvas.width !== Math.round(w * s) || canvas.height !== Math.round(h * s)) {
+        canvas.width = Math.round(w * s);
+        canvas.height = Math.round(h * s);
+      }
       const c = canvas.getContext("2d");
-      c.fillStyle = color; c.beginPath(); c.arc(64, 64, 50, 0, 2 * Math.PI); c.fill();
-      c.fillStyle = "#101010"; c.font = "bold 70px monospace"; c.textAlign = "center"; c.textBaseline = "middle";
-      c.fillText(text, 64, 68);
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false }));
-      sprite.position.copy(position);
-      sprite.scale.set(0.34, 0.34, 1);
-      sprite.renderOrder = 2;
-      car.add(sprite);
+      c.setTransform(s, 0, 0, s, 0, 0);
+      c.clearRect(0, 0, w, h);
+      return { c, w, h };
     }
-    function axis(name, hex, direction, length) {
-      const group = new THREE.Group();
-      const material = new THREE.MeshBasicMaterial({ color: hex });
-      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, length, 10), material);
-      shaft.position.y = length / 2;
-      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.24, 14), material);
-      tip.position.y = length + 0.1;
-      group.add(shaft, tip);
-      group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
-      group.position.y = 0.15;
-      car.add(group);
-      label(name, hex, direction.clone().multiplyScalar(length + 0.4).add(new THREE.Vector3(0, 0.15, 0)));
-    }
-    axis("X", "#ff5c5c", new THREE.Vector3(1, 0, 0), 1.65);   // forward
-    axis("Y", "#5ee07a", new THREE.Vector3(0, 0, -1), 1.35);  // left
-    axis("Z", "#5aa8ff", new THREE.Vector3(0, 1, 0), 1.15);   // up
 
-    const views = {
-      iso: [-3, 2.7, 5.2],
-      back: [-6.2, 1.3, 0],
-      side: [0, 0.9, 6.2],
-      top: [-0.01, 9.5, 0]
-    };
-    const setView = name => {
-      camera.position.set(...views[name]);
-      camera.lookAt(0, 0.4, 0);
-      document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === name));
-    };
-    document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => { b.blur(); setView(b.dataset.view); });
-    setView("iso");
+    const dot = { x: 0, y: 0 };
+    function drawAccel() {
+      const { c, w, h } = fitCanvas($("gmeter"));
+      const cx = w / 2, cy = h / 2, R = Math.max(10, Math.min(w, h) / 2 - 16);
+      const full = 5;  // m/s² at the outer ring
 
-    const holder = $("scene");
-    holder.replaceChildren(renderer.domElement);
-    const target = new THREE.Quaternion();
-    const euler = new THREE.Euler();
-    let width = 0, height = 0;
+      c.strokeStyle = "#555"; c.lineWidth = 1.5;
+      for (const f of [1, 0.66, 0.33]) { c.beginPath(); c.arc(cx, cy, R * f, 0, 2 * Math.PI); c.stroke(); }
+      c.beginPath(); c.moveTo(cx - R, cy); c.lineTo(cx + R, cy); c.moveTo(cx, cy - R); c.lineTo(cx, cy + R); c.stroke();
+      c.fillStyle = "#999"; c.font = "11px monospace"; c.textAlign = "center"; c.textBaseline = "middle";
+      c.fillText("FWD", cx, cy - R - 8);
+      c.fillText("BACK", cx, cy + R + 9);
 
-    view3d = () => {
-      const w = holder.clientWidth, h = holder.clientHeight;
-      if (!w || !h) return;
-      if (w !== width || h !== height) {
-        width = w; height = h;
-        renderer.setSize(w, h, false);
-        camera.aspect = w / h;
-        // Widen the view on narrow panels so the whole car stays visible
-        camera.zoom = Math.min(1.4, camera.aspect / 1.35);
-        camera.updateProjectionMatrix();
+      let tx = 0, ty = 0, size = 0;
+      if (accel) {
+        size = Math.hypot(linear.x, linear.y);
+        const k = Math.min(1, full / (size || 1));
+        tx = -linear.y * k / full;   // car +Y is left, screen +X is right
+        ty = -linear.x * k / full;
       }
-      const a = att.ready ? shownAngles() : { roll: 0, pitch: 0, yaw: 0 };
-      // Car frame (Z up) to three.js frame (Y up), rotation order yaw, pitch, roll
-      euler.set(a.roll, a.yaw, -a.pitch, "YZX");
-      target.setFromEuler(euler);
-      car.quaternion.slerp(target, 0.35);
-      head.rotation.y = sweep.seen ? ((mirrored ? 180 - sweep.angle : sweep.angle) - 90) / DEG : 0;
-      renderer.render(scene, camera);
+      dot.x += (tx - dot.x) * 0.3;
+      dot.y += (ty - dot.y) * 0.3;
+      if (accel) {
+        c.fillStyle = "#4fd1c5";
+        c.beginPath(); c.arc(cx + dot.x * R, cy + dot.y * R, 7, 0, 2 * Math.PI); c.fill();
+        c.fillStyle = "#eee"; c.textAlign = "left";
+        c.fillText("motion " + size.toFixed(1), 2, h - 8);
+      }
+
+      for (const axis of ["x", "y", "z"]) {
+        const v = accel ? accel[axis] : 0;
+        $("a" + axis + "Text").textContent = accel ? v.toFixed(2) : "—";
+        const pct = Math.min(Math.abs(v) / (2 * G), 1) * 50;
+        const bar = $("a" + axis + "Bar");
+        bar.style.width = pct + "%";
+        bar.style.left = (v >= 0 ? 50 : 50 - pct) + "%";
+      }
+    }
+
+    /* ---------------- radar ---------------- */
+    const FADE_MS = 6000;
+    $("flipBtn").onclick = e => { mirrored = !mirrored; e.target.classList.toggle("on", mirrored); };
+
+    function drawRadar() {
+      const { c, w, h } = fitCanvas($("radar"));
+      const cx = w / 2, cy = h - 18;
+      const R = Math.max(10, Math.min(w / 2 - 34, cy - 24));
+      const max = Number($("radarRange").value);
+      const point = (deg, r) => {
+        const a = (mirrored ? 180 - deg : deg) / DEG;
+        return [cx + r * Math.cos(a), cy - r * Math.sin(a)];
+      };
+      const line = (deg, r) => { c.beginPath(); c.moveTo(cx, cy); c.lineTo(...point(deg, r)); c.stroke(); };
+
+      c.strokeStyle = "#2f6b45"; c.lineWidth = 1;
+      c.font = "11px monospace"; c.textBaseline = "middle"; c.textAlign = "center";
+      for (let i = 1; i <= 4; i++) {
+        c.beginPath(); c.arc(cx, cy, R * i / 4, Math.PI, 2 * Math.PI); c.stroke();
+        c.fillStyle = "#7fae8d";
+        c.fillText(max * i / 4, cx + R * i / 4, cy + 10);
+      }
+      for (let d = 0; d <= 180; d += 30) {
+        line(d, R);
+        const [x, y] = point(d, R + 15);
+        if (d > 0 && d < 180) c.fillText(d + "°", x, y);
+      }
+
+      const now = performance.now();
+      for (const [deg, e] of echoes) {
+        const age = now - e.time;
+        if (age > FADE_MS) { echoes.delete(deg); continue; }
+        if (e.distance <= 0 || e.distance > max) continue;   // 0 means no echo
+        const alpha = 1 - age / FADE_MS;
+        const r = R * e.distance / max;
+        c.strokeStyle = `rgba(255,92,92,${alpha * 0.35})`;
+        c.lineWidth = 2;
+        c.beginPath(); c.moveTo(...point(deg, r)); c.lineTo(...point(deg, R)); c.stroke();
+        c.fillStyle = `rgba(255,92,92,${alpha})`;
+        c.beginPath(); c.arc(...point(deg, r), 3.5, 0, 2 * Math.PI); c.fill();
+      }
+
+      if (sweep.seen) {
+        c.strokeStyle = "#5ee07a"; c.lineWidth = 2.5;
+        line(sweep.angle, R);
+      }
+    }
+
+    /* ---------------- incoming data ---------------- */
+    function handleData(d) {
+      lastPacket = performance.now();
+      showSensor("temperature", d.temperature, 1);
+      showSensor("humidity", d.humidity, 1);
+      showSensor("pressure", d.pressure, 1);
+
+      if (typeof d.angle === "number" && typeof d.distance === "number") {
+        sweep = { angle: d.angle, distance: d.distance, seen: true };
+        // Remove points from the previous sweep next to this angle
+        for (const [k, e] of echoes)
+          if (Math.abs(k - d.angle) <= 1 && lastPacket - e.time > 1000) echoes.delete(k);
+        echoes.set(d.angle, { distance: d.distance, time: lastPacket });
+        $("radarReadout").textContent =
+          `angle ${d.angle}° · distance ${d.distance > 0 ? d.distance + " cm" : "no echo"}`;
+      }
+      updateOrientation(d);
+    }
+
+    function resetData() {
+      att.ready = false; att.lastT = null; att.yaw = 0;
+      accel = null; calibration = null; sweep.seen = false;
+      gyroBias = [0, 0, 0]; level.roll = level.pitch = 0;
+      echoes.clear(); lastPacket = 0;
+      for (const n of ["temperature", "humidity", "pressure"]) {
+        delete limits[n];
+        $(n).textContent = "—";
+        $(n + "Range").textContent = "min — · max —";
+      }
+      $("radarReadout").textContent = "angle — · distance —";
+      $("zeroBtn").textContent = "Calibrate";
+    }
+
+    /* ---------------- Bluetooth (Web Serial) ---------------- */
+    let link = null;   // { port, reader, writer }
+    let busy = false;
+
+    function setStatus(text, kind = "") {
+      $("status").textContent = text;
+      $("status").className = kind;
+    }
+
+    async function connect() {
+      if (!("serial" in navigator)) {
+        setStatus("This browser has no Web Serial. Use Chrome or Edge.", "warn");
+        return;
+      }
+      stopDemo();
+      busy = true;
+      let port;
+      try {
+        port = await navigator.serial.requestPort();
+        setStatus("Connecting…", "warn");
+        await port.open({ baudRate: 115200 });
+        resetData();
+        writing = false;
+        sentHorn = sentLights = null;   // tell the car the current horn and light state
+        link = { port, reader: port.readable.getReader(), writer: port.writable.getWriter() };
+        $("connectBtn").textContent = "Disconnect";
+        setStatus("Connected, waiting for data…", "warn");
+        releaseAll();
+        readLoop(link);
+      } catch (err) {
+        if (port) await port.close().catch(() => { });
+        setStatus(err.name === "NotFoundError" ? "No port selected" : "Could not connect: " + err.message, "warn");
+      } finally {
+        busy = false;
+      }
+    }
+
+    async function readLoop(current) {
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let reason = "Disconnected";
+      try {
+        while (true) {
+          const { value, done } = await current.reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop().slice(-1000);
+          for (const text of lines) {
+            let data;
+            try { data = JSON.parse(text); } catch { continue; }  // partial line
+            if (data && typeof data === "object") handleData(data);
+          }
+        }
+      } catch (err) {
+        reason = "Connection lost: " + err.message;
+      }
+      if (link === current) disconnect(reason);
+    }
+
+    const within = (promise, ms) =>
+      Promise.race([promise.catch(() => { }), new Promise(r => setTimeout(r, ms))]);
+
+    async function disconnect(reason = "Disconnected") {
+      const old = link;
+      if (!old) return;
+      releaseAll();
+      setLights(false);
+      link = null;
+      busy = true;
+      // Stop the motors, horn off, lights off
+      await within(old.writer.write(new TextEncoder().encode("Sho")), 300);
+      await within(old.reader.cancel(), 500);
+      old.reader.releaseLock();
+      await within(old.writer.close(), 500);
+      old.writer.releaseLock();
+      await within(old.port.close(), 1000);
+      $("connectBtn").textContent = "Connect Bluetooth";
+      setStatus(reason);
+      updateCommand();
+      busy = false;
+    }
+
+    $("connectBtn").onclick = e => {
+      e.target.blur();
+      if (busy) return;
+      link ? disconnect() : connect();
     };
-  } catch (err) {
-    console.error(err);
-    $("scene").textContent = "3D view unavailable. It needs an internet connection (to load three.js) and WebGL.";
-  }
-}
 
-/* ---------------- main loop ---------------- */
-function frame() {
-  showAngles();
-  drawAccel();
-  drawRadar();
-  if (view3d) view3d();
-  requestAnimationFrame(frame);
-}
+    /* ---------------- driving, horn and lights ---------------- */
+    const NAMES = { F: "Forward", B: "Backward", L: "Turning left", R: "Turning right", S: "Stopped" };
+    const KEYS = { KeyW: "F", KeyA: "L", KeyS: "B", KeyD: "R", ArrowUp: "F", ArrowLeft: "L", ArrowDown: "B", ArrowRight: "R" };
+    const held = new Map();   // input source -> command; the newest one wins
+    let command = "S";
+    let writing = false;
 
-setInterval(() => {
-  if (demoTimer) { setStatus("DEMO DATA (simulated)", "warn"); return; }
-  if (!link || !lastPacket) return;
-  if (performance.now() - lastPacket > 1500) setStatus("Connected, but no data arriving", "warn");
-  else setStatus("● Live data", "live");
-}, 300);
+    const hornHeld = new Set();   // input sources currently holding the horn
+    let lightsOn = false;
+    let sentHorn = null, sentLights = null;   // last state sent to the car
 
-init3d();
-requestAnimationFrame(frame);
-</script>
+    // Protocol: F B L R S = drive, H/h = horn on/off, O/o = lights on/off
+    async function sendCommand() {
+      if (!link || writing) return;
+      const current = link;
+      writing = true;
+      const sent = command, horn = hornHeld.size > 0, lights = lightsOn;
+      let message = sent;
+      if (horn !== sentHorn) message += horn ? "H" : "h";
+      if (lights !== sentLights) message += lights ? "O" : "o";
+      let ok = false;
+      try { await current.writer.write(new TextEncoder().encode(message)); ok = true; }
+      catch { /* the read loop reports lost connections */ }
+      if (link !== current) return;
+      writing = false;
+      if (ok) { sentHorn = horn; sentLights = lights; }
+      if (sent !== command || horn !== (hornHeld.size > 0) || lights !== lightsOn) sendCommand();
+    }
+
+    function updateCommand() {
+      const next = [...held.values()].pop() || "S";
+      const horn = hornHeld.size > 0;
+      document.querySelectorAll(".key").forEach(k =>
+        k.classList.toggle("pressed", [...held.values()].includes(k.dataset.cmd)));
+      showAux("Buzzer", horn);
+      showAux("LED", lightsOn);
+      const parts = [NAMES[next]];
+      if (horn) parts.push("Horn");
+      if (lightsOn) parts.push("Lights on");
+      const active = next !== "S" || horn || lightsOn;
+      $("driveState").textContent = parts.join(" · ") + (!link && active ? " (car not connected)" : "");
+      command = next;
+      sendCommand();
+    }
+    function showAux(id, on) {
+      $(id).classList.toggle("active", on);
+      $(id).setAttribute("aria-pressed", on);
+    }
+
+    function press(source, cmd) { held.delete(source); held.set(source, cmd); updateCommand(); }
+    function release(source) { held.delete(source); updateCommand(); }
+    function pressHorn(source) { hornHeld.add(source); updateCommand(); }
+    function releaseHorn(source) { hornHeld.delete(source); updateCommand(); }
+    function setLights(on) { lightsOn = on; updateCommand(); }
+    // Releases everything that is held down. Lights are a switch, so they stay as they are.
+    function releaseAll() { held.clear(); hornHeld.clear(); updateCommand(); }
+
+    // Repeat the command; the car stops by itself if these stop arriving
+    setInterval(sendCommand, 100);
+
+    addEventListener("keydown", e => {
+      if (e.code === "Space") { e.preventDefault(); releaseAll(); return; }
+      const onKey = e.target.closest && e.target.closest(".key");
+      if (onKey && e.code === "Enter") { e.preventDefault(); press("enter", onKey.dataset.cmd); return; }
+      const onHorn = e.target.closest && e.target.closest("#Buzzer");
+      if (onHorn && e.code === "Enter") { e.preventDefault(); pressHorn("Enter"); return; }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.code === "KeyQ") {
+        e.preventDefault();
+        if (!e.repeat) pressHorn("KeyQ");
+        return;
+      }
+      if (e.code === "KeyE") {
+        e.preventDefault();
+        if (!e.repeat) setLights(!lightsOn);
+        return;
+      }
+      if (!KEYS[e.code]) return;
+      e.preventDefault();
+      if (!e.repeat) press(e.code, KEYS[e.code]);
+    });
+    addEventListener("keyup", e => {
+      release(e.code === "Enter" ? "enter" : e.code);
+      releaseHorn(e.code);
+    });
+    addEventListener("blur", releaseAll);
+    document.addEventListener("visibilitychange", () => { if (document.hidden) releaseAll(); });
+
+    document.querySelectorAll(".key").forEach(key => {
+      key.addEventListener("pointerdown", e => {
+        e.preventDefault();
+        key.setPointerCapture(e.pointerId);
+        press("pointer" + e.pointerId, key.dataset.cmd);
+      });
+      for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
+        key.addEventListener(type, e => release("pointer" + e.pointerId));
+      key.addEventListener("contextmenu", e => e.preventDefault());
+    });
+
+    // Horn: sounds only while held
+    const hornBtn = $("Buzzer");
+    hornBtn.addEventListener("pointerdown", e => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      hornBtn.setPointerCapture(e.pointerId);
+      pressHorn("pointer" + e.pointerId);
+    });
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
+      hornBtn.addEventListener(type, e => releaseHorn("pointer" + e.pointerId));
+    hornBtn.addEventListener("contextmenu", e => e.preventDefault());
+
+    // Lights: each press switches them on or off
+    $("LED").onclick = e => { e.currentTarget.blur(); setLights(!lightsOn); };
+
+    /* ---------------- demo mode ---------------- */
+    let demoTimer = null;
+    function stopDemo() {
+      if (!demoTimer) return;
+      clearInterval(demoTimer);
+      demoTimer = null;
+      $("demoBtn").classList.remove("on");
+      resetData();
+      setStatus("Not connected");
+    }
+    $("demoBtn").onclick = e => {
+      e.target.blur();
+      if (link || busy) return;
+      if (demoTimer) { stopDemo(); return; }
+      resetData();
+      e.target.classList.add("on");
+      let n = 0, angle = 15, dir = 1;
+      demoTimer = setInterval(() => {
+        const t = ++n * 0.05;
+        const roll = 0.25 * Math.sin(t * 0.9), pitch = 0.18 * Math.sin(t * 0.6);
+        const rollRate = 0.225 * Math.cos(t * 0.9), pitchRate = 0.108 * Math.cos(t * 0.6), yawRate = 0.35 * Math.cos(t * 0.4);
+        angle += dir * 2;
+        if (angle >= 165 || angle <= 15) dir = -dir;
+        const wall = angle > 50 && angle < 85 ? 70 + 8 * Math.sin(angle / 7) : angle > 112 && angle < 138 ? 135 : 0;
+        handleData({
+          t: n * 50, angle, distance: Math.round(wall),
+          temperature: 27.4 + 0.4 * Math.sin(t / 5), humidity: 56 + 2 * Math.sin(t / 7), pressure: 1008.3 + 0.3 * Math.sin(t / 9),
+          ax: -G * Math.sin(pitch) + 1.2 * Math.sin(t * 1.7),
+          ay: G * Math.cos(pitch) * Math.sin(roll) + 0.8 * Math.cos(t * 1.3),
+          az: G * Math.cos(pitch) * Math.cos(roll),
+          gx: rollRate - yawRate * Math.sin(pitch),
+          gy: pitchRate * Math.cos(roll) + yawRate * Math.cos(pitch) * Math.sin(roll),
+          gz: yawRate * Math.cos(pitch) * Math.cos(roll) - pitchRate * Math.sin(roll)
+        });
+      }, 50);
+    };
+
+    /* ---------------- 3D gyro view ---------------- */
+    let view3d = null;
+    async function init3d() {
+      let THREE;
+      try {
+        THREE = await import("https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js");
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x333344, 2.2));
+        const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+        sun.position.set(3, 6, 4);
+        scene.add(sun);
+        const grid = new THREE.GridHelper(8, 16, 0x666666, 0x333333);
+        grid.position.y = -0.75;
+        scene.add(grid);
+
+        // Three.js frame: +X forward, +Y up, +Z right
+        const car = new THREE.Group();
+        scene.add(car);
+        const add = (geometry, color, x, y, z, parent = car) => {
+          const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color, roughness: 0.6 }));
+          mesh.position.set(x, y, z);
+          parent.add(mesh);
+          const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 35),
+            new THREE.LineBasicMaterial({ color: 0x0a0a0a }));
+          mesh.add(edges);
+          return mesh;
+        };
+        const box = (x, y, z) => new THREE.BoxGeometry(x, y, z);
+        add(box(2.2, 0.3, 1.15), 0x2f8f87, 0, 0, 0);                 // chassis
+        add(box(0.9, 0.28, 0.8), 0x3a3f4b, -0.4, 0.29, 0);           // electronics deck
+        add(box(0.08, 0.1, 0.22), 0xfff3a0, 1.13, 0.02, -0.36);      // headlights (front)
+        add(box(0.08, 0.1, 0.22), 0xfff3a0, 1.13, 0.02, 0.36);
+        add(box(0.08, 0.1, 0.9), 0xd63c3c, -1.13, 0.02, 0);          // tail light (back)
+        const wheel = new THREE.CylinderGeometry(0.34, 0.34, 0.25, 24).rotateX(Math.PI / 2);
+        for (const x of [-0.72, 0.72]) for (const z of [-0.74, 0.74]) {
+          add(wheel, 0x1b1b1b, x, -0.1, z);
+          add(new THREE.CylinderGeometry(0.13, 0.13, 0.27, 12).rotateX(Math.PI / 2), 0xbbbbbb, x, -0.1, z);
+        }
+        // Arrow on the roof pointing forward
+        const shape = new THREE.Shape();
+        [[0.5, 0], [0.1, 0.3], [0.1, 0.12], [-0.3, 0.12], [-0.3, -0.12], [0.1, -0.12], [0.1, -0.3]]
+          .forEach(([x, y], i) => i ? shape.lineTo(x, y) : shape.moveTo(x, y));
+        add(new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2), 0xffc857, 0.55, 0.165, 0);
+        // Ultrasonic sensor that turns with the servo
+        const head = new THREE.Group();
+        head.position.set(0.85, 0.42, 0);
+        car.add(head);
+        add(box(0.12, 0.24, 0.5), 0x2255aa, 0, 0, 0, head);
+        for (const z of [-0.13, 0.13])
+          add(new THREE.CylinderGeometry(0.09, 0.09, 0.12, 16).rotateZ(Math.PI / 2), 0xcccccc, 0.1, 0, z, head);
+
+        function label(text, color, position) {
+          const canvas = document.createElement("canvas");
+          canvas.width = canvas.height = 128;
+          const c = canvas.getContext("2d");
+          c.fillStyle = color; c.beginPath(); c.arc(64, 64, 50, 0, 2 * Math.PI); c.fill();
+          c.fillStyle = "#101010"; c.font = "bold 70px monospace"; c.textAlign = "center"; c.textBaseline = "middle";
+          c.fillText(text, 64, 68);
+          const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false }));
+          sprite.position.copy(position);
+          sprite.scale.set(0.34, 0.34, 1);
+          sprite.renderOrder = 2;
+          car.add(sprite);
+        }
+        function axis(name, hex, direction, length) {
+          const group = new THREE.Group();
+          const material = new THREE.MeshBasicMaterial({ color: hex });
+          const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, length, 10), material);
+          shaft.position.y = length / 2;
+          const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.24, 14), material);
+          tip.position.y = length + 0.1;
+          group.add(shaft, tip);
+          group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+          group.position.y = 0.15;
+          car.add(group);
+          label(name, hex, direction.clone().multiplyScalar(length + 0.4).add(new THREE.Vector3(0, 0.15, 0)));
+        }
+        axis("X", "#ff5c5c", new THREE.Vector3(1, 0, 0), 1.65);   // forward
+        axis("Y", "#5ee07a", new THREE.Vector3(0, 0, -1), 1.35);  // left
+        axis("Z", "#5aa8ff", new THREE.Vector3(0, 1, 0), 1.15);   // up
+
+        const views = {
+          iso: [-3, 2.7, 5.2],
+          back: [-6.2, 1.3, 0],
+          side: [0, 0.9, 6.2],
+          top: [-0.01, 9.5, 0]
+        };
+        const setView = name => {
+          camera.position.set(...views[name]);
+          camera.lookAt(0, 0.4, 0);
+          document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === name));
+        };
+        document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => { b.blur(); setView(b.dataset.view); });
+        setView("iso");
+
+        const holder = $("scene");
+        holder.replaceChildren(renderer.domElement);
+        const target = new THREE.Quaternion();
+        const euler = new THREE.Euler();
+        let width = 0, height = 0;
+
+        view3d = () => {
+          const w = holder.clientWidth, h = holder.clientHeight;
+          if (!w || !h) return;
+          if (w !== width || h !== height) {
+            width = w; height = h;
+            renderer.setSize(w, h, false);
+            camera.aspect = w / h;
+            // Widen the view on narrow panels so the whole car stays visible
+            camera.zoom = Math.min(1.4, camera.aspect / 1.35);
+            camera.updateProjectionMatrix();
+          }
+          const a = att.ready ? shownAngles() : { roll: 0, pitch: 0, yaw: 0 };
+          // Car frame (Z up) to three.js frame (Y up), rotation order yaw, pitch, roll
+          euler.set(a.roll, a.yaw, -a.pitch, "YZX");
+          target.setFromEuler(euler);
+          car.quaternion.slerp(target, 0.35);
+          head.rotation.y = sweep.seen ? ((mirrored ? 180 - sweep.angle : sweep.angle) - 90) / DEG : 0;
+          renderer.render(scene, camera);
+        };
+      } catch (err) {
+        console.error(err);
+        $("scene").textContent = "3D view unavailable. It needs an internet connection (to load three.js) and WebGL.";
+      }
+    }
+
+    /* ---------------- main loop ---------------- */
+    function frame() {
+      showAngles();
+      drawAccel();
+      drawRadar();
+      if (view3d) view3d();
+      requestAnimationFrame(frame);
+    }
+
+    setInterval(() => {
+      if (demoTimer) { setStatus("DEMO DATA (simulated)", "warn"); return; }
+      if (!link || !lastPacket) return;
+      if (performance.now() - lastPacket > 1500) setStatus("Connected, but no data arriving", "warn");
+      else setStatus("● Live data", "live");
+    }, 300);
+
+    init3d();
+    requestAnimationFrame(frame);
+  </script>
 </body>
+
 </html>
